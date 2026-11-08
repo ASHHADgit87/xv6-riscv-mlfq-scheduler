@@ -1,7 +1,3 @@
-// bench <ncpu> <nio> [primelimit] [iters]
-// Runs ncpu CPU-bound and nio I/O-bound children AT THE SAME TIME and prints
-// one CSV-style line per child plus a summary. Each child reports back through
-// a pipe so console output from different processes never interleaves.
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"
@@ -10,10 +6,10 @@
 #include "user/workloads.h"
 
 struct result {
-  int kind;       // 0 = cpu, 1 = io
+  int kind;
   int pid;
-  int start;      // uptime when the child began its workload
-  int end;        // uptime when it finished
+  int start;
+  int end;
   int cpu_ticks;
   int cpu_ms;
   int nsched;

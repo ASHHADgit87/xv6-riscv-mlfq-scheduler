@@ -141,6 +141,7 @@ make qemu CPUS=1
 
 # Inside xv6:
 $mlfqtest$ bench 3 1
+```
 
 
 

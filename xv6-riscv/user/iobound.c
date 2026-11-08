@@ -1,4 +1,3 @@
-// iobound [iterations]  - standalone I/O-bound benchmark (small file churn).
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"

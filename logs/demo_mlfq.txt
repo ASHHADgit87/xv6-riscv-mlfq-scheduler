@@ -1,0 +1,140 @@
+
+xv6 kernel is booting
+
+init: starting sh
+$ mlfqdemo
+tick  | cpu-A pid prio cpu_ticks nsched | cpu-B pid prio cpu_ticks nsched | io    pid prio cpu_ticks nsched
+2 | cpu-A 4  L0  0  1 | cpu-B 5  L0  0  1 | io    6  L0  0  1 |
+4 | cpu-A 4  L1  1  2 | cpu-B 5  L1  1  2 | io    6  L0  0  2 |
+6 | cpu-A 4  L1  1  124 | cpu-B 5  L1  2  123 | io    6  L0  1  246 |
+8 | cpu-A 4  L1  1  243 | cpu-B 5  L1  2  243 | io    6  L0  2  487 |
+10 | cpu-A 4  L1  1  357 | cpu-B 5  L1  2  357 | io    6  L0  3  717 |
+12 | cpu-A 4  L1  2  474 | cpu-B 5  L1  2  473 | io    6  L0  5  952 |
+14 | cpu-A 4  L1  2  589 | cpu-B 5  L1  3  588 | io    6  L0  6  1184 |
+16 | cpu-A 4  L1  2  705 | cpu-B 5  L1  3  705 | io    6  L0  7  1419 |
+18 | cpu-A 4  L1  2  818 | cpu-B 5  L1  3  818 | io    6  L0  8  1646 |
+20 | cpu-A 4  L1  3  935 | cpu-B 5  L1  3  934 | io    6  L0  10  1880 |
+22 | cpu-A 4  L2  3  1046 | cpu-B 5  L2  4  1068 | io    6  L0  11  2126 |
+24 | cpu-A 4  L2  3  1156 | cpu-B 5  L2  4  1178 | io    6  L0  12  2348 |
+26 | cpu-A 4  L2  3  1260 | cpu-B 5  L2  4  1283 | io    6  L0  13  2557 |
+28 | cpu-A 4  L2  4  1371 | cpu-B 5  L2  4  1394 | io    6  L0  14  2780 |
+30 | cpu-A 4  L2  4  1489 | cpu-B 5  L2  5  1511 | io    6  L0  16  3017 |
+32 | cpu-A 4  L2  4  1602 | cpu-B 5  L2  5  1624 | io    6  L0  17  3243 |
+34 | cpu-A 4  L2  4  1715 | cpu-B 5  L2  5  1738 | io    6  L0  18  3471 |
+36 | cpu-A 4  L2  4  1833 | cpu-B 5  L2  5  1855 | io    6  L0  19  3706 |
+38 | cpu-A 4  L2  5  1946 | cpu-B 5  L2  6  1968 | io    6  L0  21  3933 |
+40 | cpu-A 4  L2  5  2058 | cpu-B 5  L2  6  2081 | io    6  L0  22  4160 |
+42 | cpu-A 4  L2  5  2168 | cpu-B 5  L2  6  2191 | io    6  L0  23  4382 |
+44 | cpu-A 4  L2  6  2191 | cpu-B 5  L2  7  2214 | io    done |
+46 | cpu-A 4  L2  7  2192 | cpu-B 5  L2  8  2215 | io    done |
+48 | cpu-A 4  L2  8  2193 | cpu-B 5  L2  9  2216 | io    done |
+50 | cpu-A 4  L2  9  2194 | cpu-B 5  L2  10  2217 | io    done |
+52 | cpu-A 4  L2  10  2195 | cpu-B 5  L2  11  2218 | io    done |
+54 | cpu-A 4  L2  11  2196 | cpu-B 5  L2  12  2219 | io    done |
+56 | cpu-A 4  L2  12  2197 | cpu-B 5  L2  13  2220 | io    done |
+58 | cpu-A 4  L2  13  2198 | cpu-B 5  L2  14  2221 | io    done |
+60 | cpu-A 4  L2  14  2199 | cpu-B 5  L2  15  2222 | io    done |
+62 | cpu-A 4  L2  15  2200 | cpu-B 5  L2  16  2223 | io    done |
+64 | cpu-A 4  L2  16  2201 | cpu-B 5  L2  17  2224 | io    done |
+66 | cpu-A 4  L2  17  2202 | cpu-B 5  L2  18  2225 | io    done |
+68 | cpu-A 4  L2  18  2203 | cpu-B 5  L2  19  2226 | io    done |
+70 | cpu-A 4  L2  19  2204 | cpu-B 5  L2  20  2227 | io    done |
+72 | cpu-A 4  L2  20  2205 | cpu-B 5  L2  21  2228 | io    done |
+74 | cpu-A 4  L2  20  2206 | cpu-B 5  L2  22  2229 | io    done |
+76 | cpu-A 4  L2  21  2207 | cpu-B 5  L2  23  2230 | io    done |
+78 | cpu-A 4  L2  22  2208 | cpu-B 5  L2  24  2231 | io    done |
+80 | cpu-A 4  L2  23  2209 | cpu-B 5  L2  25  2232 | io    done |
+82 | cpu-A 4  L2  24  2210 | cpu-B 5  L2  26  2233 | io    done |
+84 | cpu-A 4  L2  25  2211 | cpu-B 5  L2  27  2234 | io    done |
+86 | cpu-A 4  L2  26  2212 | cpu-B 5  L2  28  2235 | io    done |
+88 | cpu-A 4  L2  27  2213 | cpu-B 5  L2  29  2236 | io    done |
+90 | cpu-A 4  L2  28  2214 | cpu-B 5  L2  30  2237 | io    done |
+92 | cpu-A 4  L2  29  2215 | cpu-B 5  L2  31  2238 | io    done |
+94 | cpu-A 4  L2  30  2216 | cpu-B 5  L2  32  2239 | io    done |
+96 | cpu-A 4  L2  31  2217 | cpu-B 5  L2  33  2240 | io    done |
+100 | cpu-A 4  L1  33  2219 | cpu-B 5  L1  35  2242 | io    done |
+102 | cpu-A 4  L1  34  2220 | cpu-B 5  L1  36  2243 | io    done |
+104 | cpu-A 4  L1  35  2221 | cpu-B 5  L1  37  2244 | io    done |
+106 | cpu-A 4  L2  36  2222 | cpu-B 5  L2  38  2245 | io    done |
+108 | cpu-A 4  L2  37  2223 | cpu-B 5  L2  39  2246 | io    done |
+110 | cpu-A 4  L2  38  2224 | cpu-B 5  L2  40  2247 | io    done |
+112 | cpu-A 4  L2  39  2225 | cpu-B 5  L2  41  2248 | io    done |
+114 | cpu-A 4  L2  40  2226 | cpu-B 5  L2  42  2249 | io    done |
+116 | cpu-A 4  L2  41  2227 | cpu-B 5  L2  43  2250 | io    done |
+118 | cpu-A 4  L2  42  2228 | cpu-B 5  L2  44  2251 | io    done |
+120 | cpu-A 4  L2  43  2229 | cpu-B 5  L2  45  2252 | io    done |
+122 | cpu-A 4  L2  44  2230 | cpu-B 5  L2  46  2253 | io    done |
+124 | cpu-A 4  L2  45  2231 | cpu-B 5  L2  47  2254 | io    done |
+126 | cpu-A 4  L2  45  2232 | cpu-B 5  L2  48  2255 | io    done |
+128 | cpu-A 4  L2  46  2233 | cpu-B 5  L2  49  2256 | io    done |
+130 | cpu-A 4  L2  47  2234 | cpu-B 5  L2  50  2257 | io    done |
+132 | cpu-A 4  L2  48  2235 | cpu-B 5  L2  51  2258 | io    done |
+134 | cpu-A 4  L2  49  2236 | cpu-B 5  L2  52  2259 | io    done |
+136 | cpu-A 4  L2  50  2237 | cpu-B 5  L2  53  2260 | io    done |
+138 | cpu-A 4  L2  51  2238 | cpu-B 5  L2  54  2261 | io    done |
+140 | cpu-A 4  L2  52  2239 | cpu-B 5  L2  55  2262 | io    done |
+142 | cpu-A 4  L2  53  2240 | cpu-B 5  L2  56  2263 | io    done |
+144 | cpu-A 4  L2  54  2241 | cpu-B 5  L2  57  2264 | io    done |
+146 | cpu-A 4  L2  55  2242 | cpu-B 5  L2  58  2265 | io    done |
+148 | cpu-A 4  L2  56  2243 | cpu-B 5  L2  59  2266 | io    done |
+150 | cpu-A 4  L2  57  2244 | cpu-B 5  L2  60  2267 | io    done |
+152 | cpu-A 4  L2  58  2245 | cpu-B 5  L2  61  2268 | io    done |
+154 | cpu-A 4  L2  59  2246 | cpu-B 5  L2  62  2269 | io    done |
+156 | cpu-A 4  L2  60  2247 | cpu-B 5  L2  63  2270 | io    done |
+158 | cpu-A 4  L2  61  2248 | cpu-B 5  L2  64  2271 | io    done |
+160 | cpu-A 4  L2  62  2249 | cpu-B 5  L2  65  2272 | io    done |
+162 | cpu-A 4  L2  63  2250 | cpu-B 5  L2  66  2273 | io    done |
+164 | cpu-A 4  L2  64  2251 | cpu-B 5  L2  67  2274 | io    done |
+166 | cpu-A 4  L2  65  2252 | cpu-B 5  L2  68  2275 | io    done |
+168 | cpu-A 4  L2  66  2253 | cpu-B 5  L2  69  2276 | io    done |
+170 | cpu-A 4  L2  67  2254 | cpu-B 5  L2  70  2277 | io    done |
+172 | cpu-A 4  L2  68  2255 | cpu-B 5  L2  71  2278 | io    done |
+174 | cpu-A 4  L2  69  2256 | cpu-B 5  L2  72  2279 | io    done |
+176 | cpu-A 4  L2  70  2257 | cpu-B 5  L2  73  2280 | io    done |
+178 | cpu-A 4  L2  70  2258 | cpu-B 5  L2  74  2281 | io    done |
+180 | cpu-A 4  L2  71  2259 | cpu-B 5  L2  75  2282 | io    done |
+182 | cpu-A 4  L2  72  2260 | cpu-B 5  L2  76  2283 | io    done |
+184 | cpu-A 4  L2  73  2261 | cpu-B 5  L2  77  2284 | io    done |
+186 | cpu-A 4  L2  74  2262 | cpu-B 5  L2  78  2285 | io    done |
+188 | cpu-A 4  L2  75  2263 | cpu-B 5  L2  79  2286 | io    done |
+190 | cpu-A 4  L2  76  2264 | cpu-B 5  L2  80  2287 | io    done |
+192 | cpu-A 4  L2  77  2265 | cpu-B 5  L2  81  2288 | io    done |
+194 | cpu-A 4  L2  78  2266 | cpu-B 5  L2  82  2289 | io    done |
+196 | cpu-A 4  L2  79  2267 | cpu-B 5  L2  83  2290 | io    done |
+200 | cpu-A 4  L1  81  2269 | cpu-B 5  L1  85  2292 | io    done |
+202 | cpu-A 4  L1  82  2270 | cpu-B 5  L1  86  2293 | io    done |
+204 | cpu-A 4  L1  83  2271 | cpu-B 5  L1  87  2294 | io    done |
+206 | cpu-A 4  L2  84  2272 | cpu-B 5  L2  88  2295 | io    done |
+208 | cpu-A 4  L2  85  2273 | cpu-B 5  L2  89  2296 | io    done |
+210 | cpu-A 4  L2  86  2274 | cpu-B 5  L2  90  2297 | io    done |
+212 | cpu-A 4  L2  87  2275 | cpu-B 5  L2  91  2298 | io    done |
+214 | cpu-A 4  L2  88  2276 | cpu-B 5  L2  92  2299 | io    done |
+216 | cpu-A 4  L2  89  2277 | cpu-B 5  L2  93  2300 | io    done |
+218 | cpu-A 4  L2  90  2278 | cpu-B 5  L2  94  2301 | io    done |
+220 | cpu-A 4  L2  91  2279 | cpu-B 5  L2  95  2302 | io    done |
+222 | cpu-A 4  L2  92  2280 | cpu-B 5  L2  96  2303 | io    done |
+224 | cpu-A 4  L2  93  2281 | cpu-B 5  L2  97  2304 | io    done |
+226 | cpu-A 4  L2  94  2282 | cpu-B 5  L2  98  2305 | io    done |
+228 | cpu-A 4  L2  95  2283 | cpu-B 5  L2  99  2306 | io    done |
+230 | cpu-A 4  L2  95  2284 | cpu-B 5  L2  100  2307 | io    done |
+232 | cpu-A 4  L2  96  2285 | cpu-B 5  L2  101  2308 | io    done |
+234 | cpu-A 4  L2  97  2286 | cpu-B 5  L2  102  2309 | io    done |
+236 | cpu-A 4  L2  98  2287 | cpu-B 5  L2  103  2310 | io    done |
+238 | cpu-A 4  L2  99  2288 | cpu-B 5  L2  104  2311 | io    done |
+240 | cpu-A 4  L2  100  2289 | cpu-B 5  L2  105  2312 | io    done |
+242 | cpu-A 4  L2  101  2290 | cpu-B 5  L2  106  2313 | io    done |
+244 | cpu-A 4  L2  102  2291 | cpu-B 5  L2  107  2314 | io    done |
+246 | cpu-A 4  L2  103  2292 | cpu-B 5  L2  108  2315 | io    done |
+248 | cpu-A 4  L2  104  2293 | cpu-B 5  L2  109  2316 | io    done |
+250 | cpu-A 4  L2  105  2294 | cpu-B 5  L2  110  2317 | io    done |
+252 | cpu-A 4  L2  106  2295 | cpu-B 5  L2  111  2318 | io    done |
+254 | cpu-A 4  L2  107  2296 | cpu-B 5  L2  112  2319 | io    done |
+256 | cpu-A 4  L2  108  2297 | cpu-B 5  L2  113  2320 | io    done |
+258 | cpu-A 4  L2  109  2298 | cpu-B 5  L2  114  2321 | io    done |
+260 | cpu-A 4  L2  110  2299 | cpu-B 5  L2  115  2322 | io    done |
+262 | cpu-A 4  L2  111  2301 | cpu-B done | io    done |
+264 | cpu-A 4  L2  113  2303 | cpu-B done | io    done |
+266 | cpu-A 4  L2  115  2305 | cpu-B done | io    done |
+268 | cpu-A done | cpu-B done | io    done |
+DEMO_DONE
+$

@@ -1,0 +1,26 @@
+
+xv6 kernel is booting
+
+hart 1 starting
+hart 2 starting
+init: starting sh
+$ mlfqtest
+[PASS] getprocinfo(self) succeeds
+[PASS] reported pid equals getpid()
+[PASS] running on MLFQ build
+[PASS] new process starts at top priority (0)
+[PASS] nsched >= 1 for a running process
+[PASS] getprocinfo(explicit own pid) matches
+[PASS] getprocinfo(bad pid 99999) returns -1
+[PASS] getprocinfo(bad pointer) returns -1
+[PASS] cpu_ticks grows while spinning
+[PASS] CPU hog demoted below level 0
+[PASS] CPU hog reaches the bottom queue
+[PASS] level_ms add up to cpu_ms
+[PASS] time spent in bottom queue is recorded
+[PASS] child of demoted parent starts at priority 0
+[PASS] I/O-bound process stays at priority 0
+[PASS] sleeping process stays at priority 0
+[PASS] periodic boost returns demoted process to level 0
+RESULT: all checks passed
+$

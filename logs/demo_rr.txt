@@ -1,0 +1,143 @@
+
+xv6 kernel is booting
+
+init: starting sh
+$ mlfqdemo
+tick  | cpu-A pid prio cpu_ticks nsched | cpu-B pid prio cpu_ticks nsched | io    pid prio cpu_ticks nsched
+2 | cpu-A 4  L0  0  1 | cpu-B 5  L0  1  1 | io    6  L0  0  1 |
+4 | cpu-A 4  L0  1  2 | cpu-B 5  L0  2  2 | io    6  L0  0  2 |
+6 | cpu-A 4  L0  2  3 | cpu-B 5  L0  3  3 | io    6  L0  0  3 |
+8 | cpu-A 4  L0  3  4 | cpu-B 5  L0  4  4 | io    6  L0  0  4 |
+10 | cpu-A 4  L0  4  5 | cpu-B 5  L0  5  5 | io    6  L0  0  5 |
+12 | cpu-A 4  L0  5  6 | cpu-B 5  L0  6  6 | io    6  L0  0  6 |
+14 | cpu-A 4  L0  5  7 | cpu-B 5  L0  7  7 | io    6  L0  0  7 |
+16 | cpu-A 4  L0  6  8 | cpu-B 5  L0  8  8 | io    6  L0  0  8 |
+18 | cpu-A 4  L0  7  9 | cpu-B 5  L0  9  9 | io    6  L0  0  9 |
+20 | cpu-A 4  L0  8  10 | cpu-B 5  L0  10  10 | io    6  L0  0  10 |
+22 | cpu-A 4  L0  9  11 | cpu-B 5  L0  11  11 | io    6  L0  0  11 |
+24 | cpu-A 4  L0  10  12 | cpu-B 5  L0  12  12 | io    6  L0  0  12 |
+26 | cpu-A 4  L0  11  13 | cpu-B 5  L0  13  13 | io    6  L0  0  13 |
+28 | cpu-A 4  L0  12  14 | cpu-B 5  L0  14  14 | io    6  L0  0  14 |
+30 | cpu-A 4  L0  13  15 | cpu-B 5  L0  15  15 | io    6  L0  0  15 |
+32 | cpu-A 4  L0  14  16 | cpu-B 5  L0  16  16 | io    6  L0  0  16 |
+34 | cpu-A 4  L0  15  17 | cpu-B 5  L0  17  17 | io    6  L0  0  17 |
+36 | cpu-A 4  L0  16  18 | cpu-B 5  L0  18  18 | io    6  L0  0  18 |
+38 | cpu-A 4  L0  17  19 | cpu-B 5  L0  19  19 | io    6  L0  0  19 |
+40 | cpu-A 4  L0  18  20 | cpu-B 5  L0  20  20 | io    6  L0  0  20 |
+42 | cpu-A 4  L0  19  21 | cpu-B 5  L0  21  21 | io    6  L0  0  21 |
+44 | cpu-A 4  L0  20  22 | cpu-B 5  L0  22  22 | io    6  L0  0  22 |
+46 | cpu-A 4  L0  21  23 | cpu-B 5  L0  23  23 | io    6  L0  0  23 |
+48 | cpu-A 4  L0  22  24 | cpu-B 5  L0  24  24 | io    6  L0  0  24 |
+50 | cpu-A 4  L0  23  25 | cpu-B 5  L0  25  25 | io    6  L0  0  25 |
+52 | cpu-A 4  L0  24  26 | cpu-B 5  L0  26  26 | io    6  L0  0  26 |
+54 | cpu-A 4  L0  25  27 | cpu-B 5  L0  27  27 | io    6  L0  0  27 |
+56 | cpu-A 4  L0  26  28 | cpu-B 5  L0  28  28 | io    6  L0  0  28 |
+58 | cpu-A 4  L0  27  29 | cpu-B 5  L0  29  29 | io    6  L0  0  29 |
+60 | cpu-A 4  L0  27  30 | cpu-B 5  L0  30  30 | io    6  L0  0  30 |
+62 | cpu-A 4  L0  28  31 | cpu-B 5  L0  31  31 | io    6  L0  0  31 |
+64 | cpu-A 4  L0  29  32 | cpu-B 5  L0  32  32 | io    6  L0  0  32 |
+66 | cpu-A 4  L0  30  33 | cpu-B 5  L0  33  33 | io    6  L0  0  33 |
+68 | cpu-A 4  L0  31  34 | cpu-B 5  L0  34  34 | io    6  L0  0  34 |
+70 | cpu-A 4  L0  32  35 | cpu-B 5  L0  35  35 | io    6  L0  0  35 |
+72 | cpu-A 4  L0  33  36 | cpu-B 5  L0  36  36 | io    6  L0  0  36 |
+74 | cpu-A 4  L0  34  37 | cpu-B 5  L0  37  37 | io    6  L0  0  37 |
+76 | cpu-A 4  L0  35  38 | cpu-B 5  L0  38  38 | io    6  L0  0  38 |
+78 | cpu-A 4  L0  36  39 | cpu-B 5  L0  39  39 | io    6  L0  0  39 |
+80 | cpu-A 4  L0  37  40 | cpu-B 5  L0  40  40 | io    6  L0  0  40 |
+82 | cpu-A 4  L0  38  41 | cpu-B 5  L0  41  41 | io    6  L0  0  41 |
+84 | cpu-A 4  L0  39  42 | cpu-B 5  L0  42  42 | io    6  L0  0  42 |
+86 | cpu-A 4  L0  40  43 | cpu-B 5  L0  43  43 | io    6  L0  0  43 |
+88 | cpu-A 4  L0  41  44 | cpu-B 5  L0  44  44 | io    6  L0  0  44 |
+90 | cpu-A 4  L0  42  45 | cpu-B 5  L0  45  45 | io    6  L0  0  45 |
+92 | cpu-A 4  L0  43  46 | cpu-B 5  L0  46  46 | io    6  L0  0  46 |
+94 | cpu-A 4  L0  44  47 | cpu-B 5  L0  47  47 | io    6  L0  0  47 |
+96 | cpu-A 4  L0  45  48 | cpu-B 5  L0  48  48 | io    6  L0  0  48 |
+98 | cpu-A 4  L0  46  49 | cpu-B 5  L0  49  49 | io    6  L0  0  49 |
+100 | cpu-A 4  L0  47  50 | cpu-B 5  L0  50  50 | io    6  L0  0  50 |
+102 | cpu-A 4  L0  47  51 | cpu-B 5  L0  51  51 | io    6  L0  0  51 |
+104 | cpu-A 4  L0  48  52 | cpu-B 5  L0  52  52 | io    6  L0  0  52 |
+106 | cpu-A 4  L0  49  53 | cpu-B 5  L0  53  53 | io    6  L0  0  53 |
+108 | cpu-A 4  L0  50  54 | cpu-B 5  L0  54  54 | io    6  L0  0  54 |
+110 | cpu-A 4  L0  51  55 | cpu-B 5  L0  55  55 | io    6  L0  0  55 |
+112 | cpu-A 4  L0  52  56 | cpu-B 5  L0  56  56 | io    6  L0  0  56 |
+114 | cpu-A 4  L0  53  57 | cpu-B 5  L0  57  57 | io    6  L0  0  57 |
+116 | cpu-A 4  L0  54  58 | cpu-B 5  L0  58  58 | io    6  L0  0  58 |
+118 | cpu-A 4  L0  55  59 | cpu-B 5  L0  59  59 | io    6  L0  0  59 |
+120 | cpu-A 4  L0  56  60 | cpu-B 5  L0  60  60 | io    6  L0  0  60 |
+122 | cpu-A 4  L0  57  61 | cpu-B 5  L0  61  61 | io    6  L0  0  61 |
+124 | cpu-A 4  L0  58  62 | cpu-B 5  L0  62  62 | io    6  L0  0  62 |
+126 | cpu-A 4  L0  59  63 | cpu-B 5  L0  63  63 | io    6  L0  0  63 |
+128 | cpu-A 4  L0  60  64 | cpu-B 5  L0  64  64 | io    6  L0  0  64 |
+130 | cpu-A 4  L0  61  65 | cpu-B 5  L0  65  65 | io    6  L0  0  65 |
+132 | cpu-A 4  L0  62  66 | cpu-B 5  L0  66  66 | io    6  L0  0  66 |
+134 | cpu-A 4  L0  63  67 | cpu-B 5  L0  67  67 | io    6  L0  0  67 |
+136 | cpu-A 4  L0  64  68 | cpu-B 5  L0  68  68 | io    6  L0  0  68 |
+138 | cpu-A 4  L0  65  69 | cpu-B 5  L0  69  69 | io    6  L0  0  69 |
+140 | cpu-A 4  L0  66  70 | cpu-B 5  L0  70  70 | io    6  L0  0  70 |
+142 | cpu-A 4  L0  67  71 | cpu-B 5  L0  71  71 | io    6  L0  0  71 |
+144 | cpu-A 4  L0  68  72 | cpu-B 5  L0  72  72 | io    6  L0  0  72 |
+146 | cpu-A 4  L0  69  73 | cpu-B 5  L0  73  73 | io    6  L0  0  73 |
+148 | cpu-A 4  L0  69  74 | cpu-B 5  L0  74  74 | io    6  L0  0  74 |
+150 | cpu-A 4  L0  70  75 | cpu-B 5  L0  75  75 | io    6  L0  0  75 |
+152 | cpu-A 4  L0  71  76 | cpu-B 5  L0  76  76 | io    6  L0  0  76 |
+154 | cpu-A 4  L0  72  77 | cpu-B 5  L0  77  77 | io    6  L0  0  77 |
+156 | cpu-A 4  L0  73  78 | cpu-B 5  L0  78  78 | io    6  L0  0  78 |
+158 | cpu-A 4  L0  74  79 | cpu-B 5  L0  79  79 | io    6  L0  0  79 |
+160 | cpu-A 4  L0  75  80 | cpu-B 5  L0  80  80 | io    6  L0  0  80 |
+162 | cpu-A 4  L0  76  81 | cpu-B 5  L0  81  81 | io    6  L0  0  81 |
+164 | cpu-A 4  L0  77  82 | cpu-B 5  L0  82  82 | io    6  L0  0  82 |
+166 | cpu-A 4  L0  78  83 | cpu-B 5  L0  83  83 | io    6  L0  0  83 |
+168 | cpu-A 4  L0  79  84 | cpu-B 5  L0  84  84 | io    6  L0  0  84 |
+170 | cpu-A 4  L0  80  85 | cpu-B 5  L0  85  85 | io    6  L0  0  85 |
+172 | cpu-A 4  L0  81  86 | cpu-B 5  L0  86  86 | io    6  L0  0  86 |
+174 | cpu-A 4  L0  82  87 | cpu-B 5  L0  87  87 | io    6  L0  0  87 |
+176 | cpu-A 4  L0  83  88 | cpu-B 5  L0  88  88 | io    6  L0  0  88 |
+178 | cpu-A 4  L0  84  89 | cpu-B 5  L0  89  89 | io    6  L0  0  89 |
+180 | cpu-A 4  L0  85  90 | cpu-B 5  L0  90  90 | io    6  L0  0  90 |
+182 | cpu-A 4  L0  86  91 | cpu-B 5  L0  91  91 | io    6  L0  0  91 |
+184 | cpu-A 4  L0  87  92 | cpu-B 5  L0  92  92 | io    6  L0  0  92 |
+186 | cpu-A 4  L0  88  93 | cpu-B 5  L0  93  93 | io    6  L0  0  93 |
+188 | cpu-A 4  L0  88  94 | cpu-B 5  L0  94  94 | io    6  L0  0  94 |
+190 | cpu-A 4  L0  89  95 | cpu-B 5  L0  95  95 | io    6  L0  0  95 |
+192 | cpu-A 4  L0  90  96 | cpu-B 5  L0  96  96 | io    6  L0  0  96 |
+194 | cpu-A 4  L0  91  97 | cpu-B 5  L0  97  97 | io    6  L0  0  97 |
+196 | cpu-A 4  L0  92  98 | cpu-B 5  L0  98  98 | io    6  L0  0  98 |
+198 | cpu-A 4  L0  93  99 | cpu-B 5  L0  99  99 | io    6  L0  0  99 |
+200 | cpu-A 4  L0  94  100 | cpu-B 5  L0  100  100 | io    6  L0  0  100 |
+202 | cpu-A 4  L0  95  101 | cpu-B 5  L0  101  101 | io    6  L0  0  101 |
+204 | cpu-A 4  L0  96  102 | cpu-B 5  L0  102  102 | io    6  L0  0  102 |
+206 | cpu-A 4  L0  97  103 | cpu-B 5  L0  103  103 | io    6  L0  0  103 |
+208 | cpu-A 4  L0  98  104 | cpu-B 5  L0  104  104 | io    6  L0  0  104 |
+210 | cpu-A 4  L0  99  105 | cpu-B 5  L0  105  105 | io    6  L0  0  105 |
+212 | cpu-A 4  L0  100  106 | cpu-B 5  L0  106  106 | io    6  L0  0  106 |
+214 | cpu-A 4  L0  101  107 | cpu-B 5  L0  107  107 | io    6  L0  0  107 |
+216 | cpu-A 4  L0  102  108 | cpu-B 5  L0  108  108 | io    6  L0  0  108 |
+218 | cpu-A 4  L0  103  109 | cpu-B 5  L0  109  109 | io    6  L0  0  109 |
+220 | cpu-A 4  L0  104  110 | cpu-B 5  L0  110  110 | io    6  L0  0  110 |
+222 | cpu-A 4  L0  105  111 | cpu-B 5  L0  111  111 | io    6  L0  0  111 |
+224 | cpu-A 4  L0  106  112 | cpu-B 5  L0  112  112 | io    6  L0  0  112 |
+226 | cpu-A 4  L0  107  113 | cpu-B 5  L0  113  113 | io    6  L0  0  113 |
+228 | cpu-A 4  L0  108  114 | cpu-B 5  L0  114  114 | io    6  L0  0  114 |
+230 | cpu-A 4  L0  109  116 | cpu-B 5  L0  114  115 | io    6  L0  0  116 |
+232 | cpu-A 4  L0  111  118 | cpu-B 5  L0  114  116 | io    6  L0  0  118 |
+234 | cpu-A 4  L0  113  120 | cpu-B 5  L0  114  116 | io    6  L0  0  120 |
+236 | cpu-A 4  L0  114  127 | cpu-B 5  L0  114  121 | io    6  L0  0  155 |
+238 | cpu-A done | cpu-B done | io    6  L0  2  412 |
+240 | cpu-A done | cpu-B done | io    6  L0  3  667 |
+242 | cpu-A done | cpu-B done | io    6  L0  5  927 |
+244 | cpu-A done | cpu-B done | io    6  L0  6  1180 |
+246 | cpu-A done | cpu-B done | io    6  L0  7  1431 |
+248 | cpu-A done | cpu-B done | io    6  L0  9  1677 |
+250 | cpu-A done | cpu-B done | io    6  L0  10  1953 |
+252 | cpu-A done | cpu-B done | io    6  L0  12  2219 |
+254 | cpu-A done | cpu-B done | io    6  L0  13  2473 |
+256 | cpu-A done | cpu-B done | io    6  L0  14  2745 |
+258 | cpu-A done | cpu-B done | io    6  L0  16  3006 |
+260 | cpu-A done | cpu-B done | io    6  L0  17  3270 |
+262 | cpu-A done | cpu-B done | io    6  L0  19  3534 |
+264 | cpu-A done | cpu-B done | io    6  L0  20  3788 |
+266 | cpu-A done | cpu-B done | io    6  L0  21  4040 |
+268 | cpu-A done | cpu-B done | io    6  L0  23  4303 |
+270 | cpu-A done | cpu-B done | io    done |
+DEMO_DONE
+$

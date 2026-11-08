@@ -1,0 +1,929 @@
+diff --git a/Makefile b/Makefile
+index a26f3db..e4ddb84 100644
+--- a/Makefile
++++ b/Makefile
+@@ -79,6 +79,15 @@ CFLAGS += -fno-builtin-free
+ CFLAGS += -fno-builtin-memcpy -Wno-main
+ CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
+ CFLAGS += -I.
++
++# make SCHED=RR  -> original round-robin (baseline). Default -> MLFQ.
++ifeq ($(SCHED),RR)
++CFLAGS += -DSCHED_RR
++endif
++# make NOPREEMPT=1 -> MLFQ without preempt-on-wakeup (ablation study only)
++ifeq ($(NOPREEMPT),1)
++CFLAGS += -DNO_WAKE_PREEMPT
++endif
+ CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+ 
+ # Disable PIE when possible (for Ubuntu 16.10 toolchain)
+@@ -151,6 +160,11 @@ UPROGS=\
+ 	$U/_forphan\
+ 	$U/_dorphan\
+ 	$U/_sync\
++	$U/_cpubound\
++	$U/_iobound\
++	$U/_bench\
++	$U/_mlfqtest\
++	$U/_mlfqdemo\
+ 
+ fs.img: mkfs/mkfs README $(UPROGS)
+ 	mkfs/mkfs fs.img README $(UPROGS)
+diff --git a/kernel/defs.h b/kernel/defs.h
+index 0ae6896..8014116 100644
+--- a/kernel/defs.h
++++ b/kernel/defs.h
+@@ -93,6 +93,10 @@ struct cpu*     mycpu(void);
+ struct proc*    myproc();
+ void            procinit(void);
+ void            scheduler(void) __attribute__((noreturn));
++void            mlfq_boost(void);
++int             preempt_pending(void);
++struct procinfo;
++int             kgetprocinfo(int, struct procinfo*);
+ void            sched(void);
+ void            sleep_prepare(void*);
+ void            sleep(void);
+diff --git a/kernel/param.h b/kernel/param.h
+index 1d69801..e848fa2 100644
+--- a/kernel/param.h
++++ b/kernel/param.h
+@@ -12,3 +12,8 @@
+ #define FSSIZE      2000              // size of file system in blocks
+ #define MAXPATH     128               // maximum file path name
+ #define USERSTACK   1                 // user stack pages
++
++// ---- MLFQ scheduler tunables (Lab 13) ----
++#define NQUEUE            3   // number of priority levels (0 = highest)
++#define TICK_CYCLES       1000000 // length of one timer tick in `time` CSR cycles (see clockintr)
++#define MLFQ_BOOST_TICKS  100 // every N ticks all procs go back to level 0 (anti-starvation)
+diff --git a/kernel/proc.c b/kernel/proc.c
+index 31f23a3..3b318c7 100644
+--- a/kernel/proc.c
++++ b/kernel/proc.c
+@@ -4,6 +4,7 @@
+ #include "riscv.h"
+ #include "spinlock.h"
+ #include "proc.h"
++#include "procinfo.h"
+ #include "defs.h"
+ 
+ struct cpu cpus[NCPU];
+@@ -125,6 +126,15 @@ found:
+   p->pid = allocpid();
+   p->state = USED;
+ 
++  // MLFQ rule: every new process starts at the highest priority.
++  p->priority = 0;
++  p->slice_cycles = 0;
++  p->cpu_cycles = 0;
++  p->nsched = 0;
++  p->last_run = 0;
++  for (int i = 0; i < NQUEUE; i++)
++    p->level_cycles[i] = 0;
++
+   // Allocate a trapframe page.
+   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
+     freeproc(p);
+@@ -418,6 +428,99 @@ kwait(uint64 addr)
+   }
+ }
+ 
++// Time slice (in timer ticks) for each queue level.
++// Lower queues get longer slices: fewer context switches for CPU hogs,
++// while the top queue stays short so interactive/I/O jobs are served fast.
++#ifndef SCHED_RR
++static const int quantum[NQUEUE] = {1, 2, 4};
++
++// Monotonic counter stamped on a process each time it is dispatched.
++// Smallest stamp in a level == least recently run == next in that level.
++static uint64 sched_seq;
++#endif
++
++// Charge a finished run of `ran` cycles to p (p->lock held, p just came back
++// from swtch). `lvl` is the queue the process was in when it was dispatched.
++//
++// Why here and not in the timer interrupt: charging a whole tick to whoever
++// happens to be running when the tick fires punishes I/O-bound jobs that
++// run for microseconds. Measuring real run time with the `time` CSR makes
++// demotion depend on how long the process actually held the CPU.
++static void
++account_run(struct proc *p, int lvl, uint64 ran)
++{
++  p->cpu_cycles += ran;
++  p->level_cycles[lvl] += ran;
++#ifndef SCHED_RR
++  if (p->state == RUNNABLE) {
++    // Preempted by the timer: it still wanted the CPU. Count the time
++    // toward its slice; a full slice means demotion (bottom queue is the floor).
++    p->slice_cycles += ran;
++    if (p->slice_cycles >= (uint64)quantum[lvl] * TICK_CYCLES) {
++      if (p->priority < NQUEUE - 1)
++        p->priority++;
++      p->slice_cycles = 0;
++    }
++  } else {
++    // It blocked (I/O, sleep, exit) before the slice ran out: keep the level
++    // and start the next slice fresh.
++    p->slice_cycles = 0;
++  }
++#endif
++}
++
++#ifndef SCHED_RR
++// Choose the RUNNABLE process with the best (lowest) priority level;
++// ties are broken by least-recently-run, which is round-robin inside a level.
++// Returns with the chosen process's lock HELD, or 0 if nothing is runnable.
++static struct proc *
++mlfq_pick(void)
++{
++  for (;;) {
++    struct proc *best = 0;
++    int bestprio = NQUEUE;
++    uint64 bestseq = ~0ULL;
++
++    // Pass 1: look without keeping any lock (each lock is held only briefly).
++    for (struct proc *p = proc; p < &proc[NPROC]; p++) {
++      acquire(&p->lock);
++      if (p->state == RUNNABLE &&
++          (p->priority < bestprio ||
++           (p->priority == bestprio && p->last_run < bestseq))) {
++        best = p;
++        bestprio = p->priority;
++        bestseq = p->last_run;
++      }
++      release(&p->lock);
++    }
++    if (best == 0)
++      return 0;
++
++    // Pass 2: lock the winner and re-check. Another CPU may have taken it
++    // between the two passes; if so just rescan.
++    acquire(&best->lock);
++    if (best->state == RUNNABLE)
++      return best;
++    release(&best->lock);
++  }
++}
++
++// Priority boost: put every live process back in the top queue so a
++// process that was demoted during a CPU burst cannot starve forever.
++void
++mlfq_boost(void)
++{
++  for (struct proc *p = proc; p < &proc[NPROC]; p++) {
++    acquire(&p->lock);
++    if (p->state != UNUSED) {
++      p->priority = 0;
++      p->slice_cycles = 0;
++    }
++    release(&p->lock);
++  }
++}
++#endif
++
+ // Per-CPU process scheduler.
+ // Each CPU calls scheduler() after setting itself up.
+ // Scheduler never returns.  It loops, doing:
+@@ -441,31 +544,52 @@ scheduler(void)
+     intr_on();
+     intr_off();
+ 
++#ifdef SCHED_RR
++    // ---- original xv6 round-robin (kept for the baseline benchmark) ----
+     int found = 0;
+     for (p = proc; p < &proc[NPROC]; p++) {
+       acquire(&p->lock);
+       if (p->state == RUNNABLE) {
+-        // Switch to chosen process.  It is the process's job
+-        // to release its lock and then reacquire it
+-        // before jumping back to us.
+         p->state = RUNNING;
++        p->nsched++;
+         c->proc = p;
++        uint64 t0 = r_time();
+         swtch(&c->context, &p->context);
+-
+-        // Don't re-enable interrupts on release.
++        account_run(p, p->priority, r_time() - t0);
+         mycpu()->intena = 0;
+-
+-        // Process is done running for now.
+-        // It should have changed its p->state before coming back.
+         c->proc = 0;
+         found = 1;
+       }
+       release(&p->lock);
+     }
+     if (found == 0) {
++      asm volatile("wfi");
++    }
++#else
++    // ---- MLFQ: always run the highest-priority runnable process ----
++    p = mlfq_pick();
++    if (p == 0) {
+       // nothing to run; stop running on this core until an interrupt.
+       asm volatile("wfi");
++      continue;
+     }
++    p->state = RUNNING;
++    p->nsched++;
++    p->last_run = __sync_add_and_fetch(&sched_seq, 1);
++    c->proc = p;
++    int lvl = p->priority;
++    uint64 t0 = r_time();
++    swtch(&c->context, &p->context);
++    account_run(p, lvl, r_time() - t0);
++
++    // Don't re-enable interrupts on release.
++    mycpu()->intena = 0;
++    c->proc = 0;
++
++    // pick() returned with p->lock held; the process re-acquired it before
++    // switching back to us, so we release it here.
++    release(&p->lock);
++#endif
+   }
+ }
+ 
+@@ -588,6 +712,18 @@ wakeup(void *chan)
+       // go to sleep, also set it back to RUNNING.
+       if (p->state == SLEEPING) {
+         p->state = RUNNABLE;
++#if !defined(SCHED_RR) && !defined(NO_WAKE_PREEMPT)
++        // Preempt-on-wakeup: if the process we just woke has a better
++        // priority than what this CPU is running, ask the CPU to reschedule
++        // as soon as the trap finishes instead of waiting up to a full
++        // timer tick (100 ms). Without this an I/O-bound job gets one CPU
++        // burst per tick no matter how high its priority is.
++        // (interrupts are off here, p->lock is held; reading cur->priority
++        // without its lock is a harmless race since this is only a hint.)
++        struct proc *cur = mycpu()->proc;
++        if (cur != 0 && cur != p && p->priority < cur->priority)
++          mycpu()->need_resched = 1;
++#endif
+       }
+     }
+     release(&p->lock);
+@@ -701,3 +837,44 @@ procdump(void)
+     printk("\n");
+   }
+ }
++
++// Fill *out with the performance counters of process pid.
++// Returns 0 on success, -1 if no such live process.
++int
++kgetprocinfo(int pid, struct procinfo *out)
++{
++  for (struct proc *p = proc; p < &proc[NPROC]; p++) {
++    acquire(&p->lock);
++    if (p->state != UNUSED && p->pid == pid) {
++      out->pid = p->pid;
++      out->state = p->state;
++#ifdef SCHED_RR
++      out->sched_mode = 0;
++#else
++      out->sched_mode = 1;
++#endif
++      out->priority = p->priority;
++      out->cpu_ticks = p->cpu_cycles / TICK_CYCLES;
++      out->cpu_ms = p->cpu_cycles / (TICK_CYCLES / 100); // one tick = 100 ms
++      out->nsched = p->nsched;
++      for (int i = 0; i < PINFO_LEVELS; i++)
++        out->level_ms[i] = p->level_cycles[i] / (TICK_CYCLES / 100);
++      release(&p->lock);
++      return 0;
++    }
++    release(&p->lock);
++  }
++  return -1;
++}
++
++// Returns 1 (once) if wakeup() asked this CPU to reschedule. Called at trap exit.
++int
++preempt_pending(void)
++{
++  push_off();
++  struct cpu *c = mycpu();
++  int r = c->need_resched;
++  c->need_resched = 0;
++  pop_off();
++  return r;
++}
+diff --git a/kernel/proc.h b/kernel/proc.h
+index 5603697..92def08 100644
+--- a/kernel/proc.h
++++ b/kernel/proc.h
+@@ -24,6 +24,7 @@ struct cpu {
+   struct context context; // swtch() here to enter scheduler().
+   int noff;               // Depth of push_off() nesting.
+   int intena;             // Were interrupts enabled before push_off()?
++  int need_resched;       // MLFQ: a higher-priority proc woke up, yield at next trap exit
+ };
+ 
+ extern struct cpu cpus[NCPU];
+@@ -101,4 +102,12 @@ struct proc {
+   struct file *ofile[NOFILE];  // Open files
+   struct inode *cwd;           // Current directory
+   char name[16];               // Process name (debugging)
++
++  // MLFQ / accounting fields, protected by p->lock
++  int priority;                // current queue level, 0 = highest
++  uint64 slice_cycles;         // CPU time used in the current slice (time-CSR cycles)
++  uint64 cpu_cycles;           // total CPU time used by this process
++  int nsched;                  // number of times scheduled onto a CPU
++  uint64 last_run;             // sched sequence number, for round-robin inside a level
++  uint64 level_cycles[NQUEUE]; // CPU time spent in each queue level
+ };
+diff --git a/kernel/procinfo.h b/kernel/procinfo.h
+new file mode 100644
+index 0000000..8e46af7
+--- /dev/null
++++ b/kernel/procinfo.h
+@@ -0,0 +1,15 @@
++// Performance snapshot returned by getprocinfo().
++// Shared by the kernel and user programs, so it uses only plain ints.
++#define PINFO_LEVELS 3
++#define NQUEUE_LAST  (PINFO_LEVELS - 1)
++
++struct procinfo {
++  int pid;
++  int state;                    // enum procstate value of the target
++  int sched_mode;               // 0 = round-robin build, 1 = MLFQ build
++  int priority;                 // current queue, 0 = highest
++  int cpu_ticks;                // CPU time consumed, in timer ticks (1 tick = 100 ms)
++  int cpu_ms;                   // same CPU time in milliseconds (finer grained)
++  int nsched;                   // times the scheduler switched to it
++  int level_ms[PINFO_LEVELS];   // CPU ms spent in each queue level
++};
+diff --git a/kernel/syscall.c b/kernel/syscall.c
+index 1800f20..e5a3181 100644
+--- a/kernel/syscall.c
++++ b/kernel/syscall.c
+@@ -95,6 +95,7 @@ extern uint64 sys_getpid(void);
+ extern uint64 sys_sbrk(void);
+ extern uint64 sys_pause(void);
+ extern uint64 sys_uptime(void);
++extern uint64 sys_getprocinfo(void);
+ extern uint64 sys_open(void);
+ extern uint64 sys_write(void);
+ extern uint64 sys_mknod(void);
+@@ -122,6 +123,7 @@ static uint64 (*syscalls[])(void) = {
+   [SYS_sbrk]    = sys_sbrk,
+   [SYS_pause]   = sys_pause,
+   [SYS_uptime]  = sys_uptime,
++  [SYS_getprocinfo] = sys_getprocinfo,
+   [SYS_open]    = sys_open,
+   [SYS_write]   = sys_write,
+   [SYS_mknod]   = sys_mknod,
+diff --git a/kernel/syscall.h b/kernel/syscall.h
+index 5a4a39f..152af13 100644
+--- a/kernel/syscall.h
++++ b/kernel/syscall.h
+@@ -21,3 +21,4 @@
+ #define SYS_mkdir  20
+ #define SYS_close  21
+ #define SYS_sync   22
++#define SYS_getprocinfo 23
+diff --git a/kernel/sysproc.c b/kernel/sysproc.c
+index cd25557..aa11ab9 100644
+--- a/kernel/sysproc.c
++++ b/kernel/sysproc.c
+@@ -6,6 +6,7 @@
+ #include "spinlock.h"
+ #include "proc.h"
+ #include "vm.h"
++#include "procinfo.h"
+ 
+ uint64
+ sys_exit(void)
+@@ -110,3 +111,28 @@ sys_uptime(void)
+   release(&tickslock);
+   return xticks;
+ }
++
++// int getprocinfo(int pid, struct procinfo *info)
++// pid <= 0 means "the calling process". Returns 0 on success, -1 on error.
++// xv6 syscalls return a single int, so the metrics come back through *info.
++uint64
++sys_getprocinfo(void)
++{
++  int pid;
++  uint64 uaddr;
++  struct procinfo info;
++  struct proc *me = myproc();
++
++  argint(0, &pid);
++  argaddr(1, &uaddr);
++  if (pid <= 0)
++    pid = me->pid;
++
++  // Snapshot under the target's lock, copy to user space after releasing it
++  // (copyout must not run while holding a spinlock).
++  if (kgetprocinfo(pid, &info) < 0)
++    return -1;
++  if (copyout(me->pagetable, me->sz, uaddr, (char *)&info, sizeof(info)) < 0)
++    return -1;
++  return 0;
++}
+diff --git a/kernel/trap.c b/kernel/trap.c
+index 00e99bc..985667f 100644
+--- a/kernel/trap.c
++++ b/kernel/trap.c
+@@ -82,7 +82,8 @@ usertrap(void)
+     kexit(-1);
+ 
+   // give up the CPU if this is a timer interrupt.
+-  if (which_dev == 2)
++  // (or if a higher-priority process was just woken, see wakeup()).
++  if (which_dev == 2 || preempt_pending())
+     yield();
+ 
+   prepare_return();
+@@ -154,7 +155,7 @@ kerneltrap()
+   }
+ 
+   // give up the CPU if this is a timer interrupt.
+-  if (which_dev == 2 && myproc() != 0)
++  if ((which_dev == 2 || preempt_pending()) && myproc() != 0)
+     yield();
+ 
+   // the yield() may have caused some traps to occur,
+@@ -167,10 +168,18 @@ void
+ clockintr()
+ {
+   if (cpuid() == 0) {
++    uint now;
+     acquire(&tickslock);
+     ticks++;
++    now = ticks;
+     wakeup(&ticks);
+     release(&tickslock);
++    (void)now; // only used by the MLFQ boost below
++#ifndef SCHED_RR
++    // Periodic boost, done outside tickslock to keep lock nesting minimal.
++    if (now % MLFQ_BOOST_TICKS == 0)
++      mlfq_boost();
++#endif
+   }
+ 
+   // ask for the next timer interrupt. this also clears
+diff --git a/user/bench.c b/user/bench.c
+new file mode 100644
+index 0000000..95b595a
+--- /dev/null
++++ b/user/bench.c
+@@ -0,0 +1,99 @@
++// bench <ncpu> <nio> [primelimit] [iters]
++// Runs ncpu CPU-bound and nio I/O-bound children AT THE SAME TIME and prints
++// one CSV-style line per child plus a summary. Each child reports back through
++// a pipe so console output from different processes never interleaves.
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "kernel/fcntl.h"
++#include "kernel/procinfo.h"
++#include "user/user.h"
++#include "user/workloads.h"
++
++struct result {
++  int kind;       // 0 = cpu, 1 = io
++  int pid;
++  int start;      // uptime when the child began its workload
++  int end;        // uptime when it finished
++  int cpu_ticks;
++  int cpu_ms;
++  int nsched;
++  int prio;
++  int level_ms[PINFO_LEVELS];
++  int mode;
++};
++
++int
++main(int argc, char *argv[])
++{
++  int ncpu = argc > 1 ? atoi(argv[1]) : 1;
++  int nio = argc > 2 ? atoi(argv[2]) : 1;
++  int limit = argc > 3 ? atoi(argv[3]) : 4000000;
++  int iters = argc > 4 ? atoi(argv[4]) : 100;
++  int total = ncpu + nio;
++  int fds[2];
++
++  if (total < 1 || total > 30) {
++    printf("bench: bad process count\n");
++    exit(1);
++  }
++  pipe(fds);
++
++  int t_start = uptime();
++  for (int i = 0; i < total; i++) {
++    int pid = fork();
++    if (pid < 0) {
++      printf("bench: fork failed\n");
++      exit(1);
++    }
++    if (pid == 0) {
++      struct result r;
++      struct procinfo pi;
++      close(fds[0]);
++      r.kind = i < ncpu ? 0 : 1;
++      r.start = uptime();
++      if (r.kind == 0)
++        count_primes(limit);
++      else if (file_churn(getpid(), iters) < 0)
++        exit(1);
++      r.end = uptime();
++      getprocinfo(0, &pi);
++      r.pid = pi.pid;
++      r.cpu_ticks = pi.cpu_ticks;
++      r.cpu_ms = pi.cpu_ms;
++      r.nsched = pi.nsched;
++      r.prio = pi.priority;
++      r.mode = pi.sched_mode;
++      for (int k = 0; k < PINFO_LEVELS; k++)
++        r.level_ms[k] = pi.level_ms[k];
++      write(fds[1], &r, sizeof(r));
++      exit(0);
++    }
++  }
++  close(fds[1]);
++
++  printf("kind,pid,wall_ticks,cpu_ms,nsched,final_prio,l0_ms,l1_ms,l2_ms\n");
++  struct result r;
++  int cpu_wall = 0, io_wall = 0, cpu_n = 0, io_n = 0, cpu_cpu = 0, io_cpu = 0;
++  int mode = -1;
++  while (read(fds[0], &r, sizeof(r)) == sizeof(r)) {
++    int wall = r.end - r.start;
++    printf("%s,%d,%d,%d,%d,%d,%d,%d,%d\n", r.kind ? "io" : "cpu", r.pid, wall,
++           r.cpu_ms, r.nsched, r.prio, r.level_ms[0], r.level_ms[1],
++           r.level_ms[2]);
++    mode = r.mode;
++    if (r.kind == 0) {
++      cpu_wall += wall; cpu_cpu += r.cpu_ms; cpu_n++;
++    } else {
++      io_wall += wall; io_cpu += r.cpu_ms; io_n++;
++    }
++  }
++  while (wait(0) > 0)
++    ;
++  int t_end = uptime();
++  printf("SUMMARY mode=%s ncpu=%d nio=%d total_wall=%d avg_cpu_wall=%d avg_io_wall=%d avg_cpu_ms_cpu=%d avg_cpu_ms_io=%d\n",
++         mode ? "MLFQ" : "RR", ncpu, nio, t_end - t_start,
++         cpu_n ? cpu_wall / cpu_n : 0, io_n ? io_wall / io_n : 0,
++         cpu_n ? cpu_cpu / cpu_n : 0, io_n ? io_cpu / io_n : 0);
++  printf("BENCH_DONE\n");
++  exit(0);
++}
+diff --git a/user/cpubound.c b/user/cpubound.c
+new file mode 100644
+index 0000000..e49b312
+--- /dev/null
++++ b/user/cpubound.c
+@@ -0,0 +1,27 @@
++// cpubound [limit]  - standalone CPU-bound benchmark (prime counting).
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "kernel/fcntl.h"
++#include "kernel/procinfo.h"
++#include "user/user.h"
++#include "user/workloads.h"
++
++int
++main(int argc, char *argv[])
++{
++  int limit = argc > 1 ? atoi(argv[1]) : 4000000;
++  struct procinfo pi;
++
++  int t0 = uptime();
++  int primes = count_primes(limit);
++  int t1 = uptime();
++
++  if (getprocinfo(0, &pi) < 0) {
++    printf("cpubound: getprocinfo failed\n");
++    exit(1);
++  }
++  printf("cpubound pid=%d primes<%d=%d wall=%d ticks cpu=%d ticks (%d ms) sched=%d prio=%d (mode %s)\n",
++         pi.pid, limit, primes, t1 - t0, pi.cpu_ticks, pi.cpu_ms, pi.nsched, pi.priority,
++         pi.sched_mode ? "MLFQ" : "RR");
++  exit(0);
++}
+diff --git a/user/iobound.c b/user/iobound.c
+new file mode 100644
+index 0000000..fa06f14
+--- /dev/null
++++ b/user/iobound.c
+@@ -0,0 +1,27 @@
++// iobound [iterations]  - standalone I/O-bound benchmark (small file churn).
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "kernel/fcntl.h"
++#include "kernel/procinfo.h"
++#include "user/user.h"
++#include "user/workloads.h"
++
++int
++main(int argc, char *argv[])
++{
++  int iters = argc > 1 ? atoi(argv[1]) : 100;
++  struct procinfo pi;
++
++  int t0 = uptime();
++  int bytes = file_churn(getpid(), iters);
++  int t1 = uptime();
++
++  if (bytes < 0 || getprocinfo(0, &pi) < 0) {
++    printf("iobound: failed\n");
++    exit(1);
++  }
++  printf("iobound pid=%d iters=%d bytes=%d wall=%d ticks cpu=%d ticks (%d ms) sched=%d prio=%d (mode %s)\n",
++         pi.pid, iters, bytes, t1 - t0, pi.cpu_ticks, pi.cpu_ms, pi.nsched, pi.priority,
++         pi.sched_mode ? "MLFQ" : "RR");
++  exit(0);
++}
+diff --git a/user/mlfqdemo.c b/user/mlfqdemo.c
+new file mode 100644
+index 0000000..9bf61b3
+--- /dev/null
++++ b/user/mlfqdemo.c
+@@ -0,0 +1,53 @@
++// mlfqdemo - visual demonstration of scheduler behaviour.
++// Starts 2 CPU hogs and 1 I/O job, then the parent samples every 2 ticks and
++// prints each child's queue level and CPU ticks. Under MLFQ the hogs sink to
++// level 2 while the I/O job stays at level 0; under RR everything stays at 0.
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "kernel/fcntl.h"
++#include "kernel/procinfo.h"
++#include "user/user.h"
++#include "user/workloads.h"
++
++int
++main(int argc, char *argv[])
++{
++  int limit = argc > 1 ? atoi(argv[1]) : 4000000;
++  int pids[3];
++  char *role[3] = {"cpu-A", "cpu-B", "io   "};
++
++  int t0 = uptime();
++  for (int i = 0; i < 3; i++) {
++    pids[i] = fork();
++    if (pids[i] == 0) {
++      if (i < 2)
++        count_primes(limit);
++      else
++        file_churn(getpid(), 100);
++      exit(0);
++    }
++  }
++
++  printf("tick  | %s pid prio cpu_ticks nsched | %s pid prio cpu_ticks nsched | %s pid prio cpu_ticks nsched\n",
++         role[0], role[1], role[2]);
++  int alive = 3;
++  while (alive > 0) {
++    pause(2);
++    printf("%d |", uptime() - t0);
++    alive = 0;
++    for (int i = 0; i < 3; i++) {
++      struct procinfo pi;
++      if (getprocinfo(pids[i], &pi) == 0 && pi.state != 5) {  // 5 = ZOMBIE
++        printf(" %s %d  L%d  %d  %d |", role[i], pi.pid, pi.priority, pi.cpu_ticks, pi.nsched);
++        alive++;
++      } else {
++        printf(" %s done |", role[i]);
++      }
++    }
++    printf("\n");
++  }
++  for (int i = 0; i < 3; i++)
++    wait(0);
++  printf("DEMO_DONE\n");
++  exit(0);
++}
+diff --git a/user/mlfqtest.c b/user/mlfqtest.c
+new file mode 100644
+index 0000000..89a5d1e
+--- /dev/null
++++ b/user/mlfqtest.c
+@@ -0,0 +1,119 @@
++// mlfqtest - functional tests for the MLFQ scheduler and getprocinfo().
++// Prints PASS/FAIL per check. Meaningful only on the MLFQ build.
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "kernel/fcntl.h"
++#include "kernel/procinfo.h"
++#include "user/user.h"
++#include "user/workloads.h"
++
++static int failures = 0;
++
++static void
++check(char *name, int ok)
++{
++  printf("[%s] %s\n", ok ? "PASS" : "FAIL", name);
++  if (!ok)
++    failures++;
++}
++
++// Spin for about n timer ticks without making any syscall that could block.
++static void
++spin_ticks(int n)
++{
++  int end = uptime() + n;
++  volatile int x = 0;
++  while (uptime() < end)
++    x++;
++}
++
++int
++main(void)
++{
++  struct procinfo pi, pj;
++
++  // 1. getprocinfo basics
++  check("getprocinfo(self) succeeds", getprocinfo(0, &pi) == 0);
++  check("reported pid equals getpid()", pi.pid == getpid());
++  check("running on MLFQ build", pi.sched_mode == 1);
++  check("new process starts at top priority (0)", pi.priority == 0);
++  check("nsched >= 1 for a running process", pi.nsched >= 1);
++  check("getprocinfo(explicit own pid) matches", getprocinfo(getpid(), &pj) == 0 && pj.pid == pi.pid);
++  check("getprocinfo(bad pid 99999) returns -1", getprocinfo(99999, &pj) == -1);
++  check("getprocinfo(bad pointer) returns -1", getprocinfo(0, (struct procinfo *)0xFFFFFFFFFFULL) == -1);
++
++  // 2. CPU hog is demoted and its counters grow
++  int before = pi.cpu_ticks;
++  spin_ticks(6);
++  getprocinfo(0, &pi);
++  check("cpu_ticks grows while spinning", pi.cpu_ticks > before);
++  check("CPU hog demoted below level 0", pi.priority > 0);
++  check("CPU hog reaches the bottom queue", pi.priority == NQUEUE_LAST);
++  int sum = 0;
++  for (int i = 0; i < PINFO_LEVELS; i++)
++    sum += pi.level_ms[i];
++  // per-level values are truncated separately, so allow a few ms of rounding
++  check("level_ms add up to cpu_ms", sum <= pi.cpu_ms && pi.cpu_ms - sum <= 3);
++  check("time spent in bottom queue is recorded", pi.level_ms[NQUEUE_LAST] > 0);
++
++  // 3. Child of a demoted parent starts fresh at the top
++  int p2c[2];
++  pipe(p2c);
++  int pid = fork();
++  if (pid == 0) {
++    struct procinfo ci;
++    getprocinfo(0, &ci);
++    write(p2c[1], &ci.priority, sizeof(int));
++    exit(0);
++  }
++  int child_prio = -1;
++  read(p2c[0], &child_prio, sizeof(int));
++  wait(0);
++  check("child of demoted parent starts at priority 0", child_prio == 0);
++
++  // 4. I/O-bound process keeps its priority (no demotion for yielding)
++  pid = fork();
++  if (pid == 0) {
++    struct procinfo ci;
++    file_churn(getpid(), 40);
++    getprocinfo(0, &ci);
++    int ok = ci.priority == 0 ? 1 : 0;
++    write(p2c[1], &ok, sizeof(int));
++    exit(0);
++  }
++  int io_ok = 0;
++  read(p2c[0], &io_ok, sizeof(int));
++  wait(0);
++  check("I/O-bound process stays at priority 0", io_ok == 1);
++
++  // 5. Sleeping process keeps its level
++  pid = fork();
++  if (pid == 0) {
++    struct procinfo ci;
++    for (int i = 0; i < 8; i++)
++      pause(1);
++    getprocinfo(0, &ci);
++    int ok = ci.priority == 0 ? 1 : 0;
++    write(p2c[1], &ok, sizeof(int));
++    exit(0);
++  }
++  int sl_ok = 0;
++  read(p2c[0], &sl_ok, sizeof(int));
++  wait(0);
++  check("sleeping process stays at priority 0", sl_ok == 1);
++
++  // 6. Priority boost lifts the hog back to level 0 eventually
++  getprocinfo(0, &pi);
++  int boosted = 0;
++  int deadline = uptime() + 250;
++  while (uptime() < deadline && !boosted) {
++    pause(1);                       // sleep so we do not demote again meanwhile
++    getprocinfo(0, &pi);
++    if (pi.priority == 0)
++      boosted = 1;
++  }
++  check("periodic boost returns demoted process to level 0", boosted);
++
++  printf(failures ? "RESULT: %d check(s) FAILED\n" : "RESULT: all checks passed\n", failures);
++  exit(failures ? 1 : 0);
++}
+diff --git a/user/user.h b/user/user.h
+index 29aad59..877eaa8 100644
+--- a/user/user.h
++++ b/user/user.h
+@@ -25,6 +25,8 @@ char *sys_sbrk(int, int);
+ int pause(int);
+ int uptime(void);
+ int sync(void);
++struct procinfo;
++int getprocinfo(int, struct procinfo*);
+ 
+ // ulib.c
+ int stat(const char *, struct stat *);
+diff --git a/user/usys.pl b/user/usys.pl
+index 4d054e8..5b0d443 100755
+--- a/user/usys.pl
++++ b/user/usys.pl
+@@ -43,3 +43,4 @@ entry("sbrk");
+ entry("pause");
+ entry("uptime");
+ entry("sync");
++entry("getprocinfo");
+diff --git a/user/workloads.h b/user/workloads.h
+new file mode 100644
+index 0000000..64c0cb9
+--- /dev/null
++++ b/user/workloads.h
+@@ -0,0 +1,75 @@
++// Shared workload kernels for cpubound, iobound and bench.
++// Header-only (static functions) because xv6 has no shared library support.
++
++// Volatile sink: without a side effect the compiler deletes the whole loop
++// when the caller ignores the return value (it did, and the "CPU hog"
++// finished in 0 ms). Writing the result here keeps the work real.
++static volatile int prime_sink;
++
++// ---- CPU-bound: count primes in [2, limit) by trial division ----
++// Pure ALU work with zero system calls, so the process never blocks and
++// always burns its whole time slice (the worst case for MLFQ demotion).
++static __attribute__((unused)) int
++count_primes(int limit)
++{
++  int count = 0;
++  for (int n = 2; n < limit; n++) {
++    int prime = 1;
++    for (int d = 2; d * d <= n; d++) {
++      if (n % d == 0) {
++        prime = 0;
++        break;
++      }
++    }
++    count += prime;
++  }
++  prime_sink = count;
++  return count;
++}
++
++// ---- I/O-bound: create, write, close and delete small files ----
++// Every iteration does several syscalls that block on the virtio disk
++// (log commit), so the process voluntarily sleeps long before its slice ends.
++// Returns number of bytes written, or -1 on error.
++static __attribute__((unused)) int
++file_churn(int pid, int iterations)
++{
++  char name[16];
++  char buf[64];
++  int total = 0;
++
++  for (int i = 0; i < sizeof(buf); i++)
++    buf[i] = 'a' + (i % 26);
++
++  // Build the name "io<pid>" by hand (xv6 has no snprintf).
++  name[0] = 'i';
++  name[1] = 'o';
++  int len = 2;
++  char digits[12];
++  int nd = 0;
++  int v = pid;
++  do {
++    digits[nd++] = '0' + (v % 10);
++    v /= 10;
++  } while (v > 0);
++  while (nd > 0)
++    name[len++] = digits[--nd];
++  name[len] = 0;
++
++  for (int i = 0; i < iterations; i++) {
++    int fd = open(name, O_CREATE | O_WRONLY);
++    if (fd < 0)
++      return -1;
++    for (int k = 0; k < 4; k++) {
++      if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
++        close(fd);
++        return -1;
++      }
++      total += sizeof(buf);
++    }
++    close(fd);
++    if (unlink(name) < 0)
++      return -1;
++  }
++  return total;
++}

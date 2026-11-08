@@ -1,0 +1,11 @@
+
+xv6 kernel is booting
+
+init: starting sh
+$ bench 1 1
+kind,pid,wall_ticks,cpu_ms,nsched,final_prio,l0_ms,l1_ms,l2_ms
+io,5,38,2381,4427,0,2381,0,0
+cpu,4,145,11606,4513,2,225,500,10880
+SUMMARY mode=MLFQ ncpu=1 nio=1 total_wall=146 avg_cpu_wall=145 avg_io_wall=38 avg_cpu_ms_cpu=11606 avg_cpu_ms_io=2381
+BENCH_DONE
+$

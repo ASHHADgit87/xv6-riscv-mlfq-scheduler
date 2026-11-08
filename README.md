@@ -1,6 +1,6 @@
 # xv6-riscv-mlfq-scheduler
 
-**xv6-riscv-mlfq-scheduler** is a custom operating system scheduling implementation built with **C, RISC-V Assembly, QEMU, and Python**. It replaces the default round-robin scheduler in the xv6 kernel with a Multi-Level Feedback Queue (MLFQ). Every process is dynamically prioritized, monitored with accurate CPU accounting, and managed to prevent starvation while prioritizing I/O-bound interactive tasks.
+**xv6-riscv-mlfq-scheduler** is a custom operating system scheduling implementation built with **C, RISC-V Assembly, and QEMU**. It replaces the default round-robin scheduler in the xv6 kernel with a Multi-Level Feedback Queue (MLFQ). Every process is dynamically prioritized, monitored with accurate CPU accounting, and managed to prevent starvation while prioritizing I/O-bound interactive tasks.
 
 ---
 
@@ -16,19 +16,16 @@ A Multi-Level Feedback Queue (MLFQ) solves this by isolating processes based on 
 
 # Core Integration
 
-xv6-riscv-mlfq-scheduler uses **C**, **RISC-V Assembly**, **QEMU Emulator**, and **Python** to deliver a secure, high-performance widget platform.
+xv6-riscv-mlfq-scheduler uses **C**, **RISC-V Assembly**, and the **QEMU Emulator** to deliver a prioritized kernel environment.
 
 ### Stack Integration
 
-| Component         | Role                                                           |
-| ----------------- | -------------------------------------------------------------- |
-| `C`               | Primary kernel and user-space application logic                |
-| `RISC-V Assembly` | Low-level trap handling and context switching                  |
-| `QEMU`            | Virtualization and hardware emulation                          |
-| `Makefile`        | Compilation pipeline and emulator initialization               |
-| `Python 3`        | Automated benchmarking, log parsing, and PDF report generation |
-| `Matplotlib`      | Data visualization for scheduler performance                   |
-| `ReportLab`       | Programmatic PDF construction                                  |
+| Component         | Role                                             |
+| ----------------- | ------------------------------------------------ |
+| `C`               | Primary kernel and user-space application logic  |
+| `RISC-V Assembly` | Low-level trap handling and context switching    |
+| `QEMU`            | Virtualization and hardware emulation            |
+| `Makefile`        | Compilation pipeline and emulator initialization |
 
 ---
 
@@ -49,11 +46,10 @@ xv6-riscv-mlfq-scheduler follows a **hardware-to-user-space OS architecture**:
 | Kernel Space          | xv6 process management (`proc.c`, `trap.c`, `scheduler`)            |
 | Hardware Emulation    | QEMU (1 Hart, 128 MB RAM, Virtio Disk, Deterministic Timer)         |
 | Toolchain             | riscv64-linux-gnu-gcc                                               |
-| Analytics             | Python scripts (`run_benchmarks.py`, `make_report.py`)              |
 
 ---
 
-# BaaS
+# Implementation
 
 xv6-riscv-mlfq-scheduler is delivered as a **Core Kernel Modification**. Developers compile the operating system and boot it via hardware emulation. Processes are automatically managed by the MLFQ logic, and their runtime metrics are exposed to user space via a custom kernel system call.
 
@@ -83,21 +79,15 @@ xv6-riscv-mlfq-scheduler is delivered as a **Core Kernel Modification**. Develop
 | Input validation   | Prevents out-of-bounds metrics manipulation in user space                   |
 | Tenant isolation   | Process data fully isolated within `struct proc` and protected by `p->lock` |
 
-### Analytics & Dashboard
+### Analytics & Testing
 
 | Capability           | Detail                                                                 |
 | -------------------- | ---------------------------------------------------------------------- |
 | Workload simulation  | Isolated `cpubound` and `iobound` programs to test edge cases          |
 | Concurrent execution | `bench` orchestrates N CPU and M I/O processes simultaneously          |
 | Deterministic timing | QEMU `-icount` shift ensures repeatable virtual time across runs       |
-| Automated reporting  | Python scripts execute QEMU, extract logs, and compile a formatted PDF |
+| Performance logging  | Emulated workloads output benchmark metrics for manual data collection |
 | Profile management   | Exposes `nsched` and `cpu_ticks` directly to user processes            |
-
-### 3D Backgrounds
-
-| Capability     | Detail                                                            |
-| -------------- | ----------------------------------------------------------------- |
-| Not Applicable | Kernel modification running entirely in headless emulated console |
 
 ### Data Model
 
@@ -130,15 +120,13 @@ xv6-riscv-mlfq-scheduler is delivered as a **Core Kernel Modification**. Develop
 
 # Tech Stack
 
-| Layer            | Technology                    |
-| ---------------- | ----------------------------- |
-| Operating System | xv6-riscv                     |
-| Language         | C, RISC-V Assembly            |
-| Build System     | GNU Make                      |
-| Emulation        | QEMU                          |
-| Compiler         | gcc-riscv64-linux-gnu         |
-| Scripting        | Python 3, Bash                |
-| Data Processing  | Pandas, Matplotlib, ReportLab |
+| Layer            | Technology            |
+| ---------------- | --------------------- |
+| Operating System | xv6-riscv             |
+| Language         | C, RISC-V Assembly    |
+| Build System     | GNU Make              |
+| Emulation        | QEMU                  |
+| Compiler         | gcc-riscv64-linux-gnu |
 
 ---
 
@@ -154,8 +142,6 @@ make qemu CPUS=1
 # Inside xv6:
 $mlfqtest$ bench 3 1
 
-```
-
 ---
 
 ## Creator & Developer
@@ -164,3 +150,4 @@ $mlfqtest$ bench 3 1
 - LinkedIn: https://www.linkedin.com/in/muhammad-ashhadullah-zaheer-41194a340/
 - **Misbah Sarfraz**
 - Co-Creator & Infrastructure Developer
+```

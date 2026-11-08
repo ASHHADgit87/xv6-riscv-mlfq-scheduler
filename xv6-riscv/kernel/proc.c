@@ -19,17 +19,10 @@ struct spinlock pid_lock;
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
-extern char trampoline[]; // trampoline.S
+extern char trampoline[];
 
-// helps ensure that wakeups of wait()ing
-// parents are not lost. helps obey the
-// memory model when using p->parent.
-// must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-// Allocate a page for each process's kernel stack.
-// Map it high in memory, followed by an invalid
-// guard page.
 void
 proc_mapstacks(pagetable_t kpgtbl)
 {
@@ -44,7 +37,6 @@ proc_mapstacks(pagetable_t kpgtbl)
   }
 }
 
-// initialize the proc table.
 void
 procinit(void)
 {
@@ -59,9 +51,6 @@ procinit(void)
   }
 }
 
-// Must be called with interrupts disabled,
-// to prevent race with process being moved
-// to a different CPU.
 int
 cpuid()
 {
@@ -69,8 +58,6 @@ cpuid()
   return id;
 }
 
-// Return this CPU's cpu struct.
-// Interrupts must be disabled.
 struct cpu *
 mycpu(void)
 {
@@ -79,7 +66,6 @@ mycpu(void)
   return c;
 }
 
-// Return the current struct proc *, or zero if none.
 struct proc *
 myproc(void)
 {
@@ -103,10 +89,6 @@ allocpid()
   return pid;
 }
 
-// Look in the process table for an UNUSED proc.
-// If found, initialize state required to run in the kernel,
-// and return with p->lock held.
-// If there are no free procs, or a memory allocation fails, return 0.
 static struct proc *
 allocproc(void)
 {
@@ -126,7 +108,6 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
-  // MLFQ rule: every new process starts at the highest priority.
   p->priority = 0;
   p->slice_cycles = 0;
   p->cpu_cycles = 0;
@@ -135,14 +116,12 @@ found:
   for (int i = 0; i < NQUEUE; i++)
     p->level_cycles[i] = 0;
 
-  // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
     freeproc(p);
     release(&p->lock);
     return 0;
   }
 
-  // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if (p->pagetable == 0) {
     freeproc(p);
@@ -150,8 +129,6 @@ found:
     return 0;
   }
 
-  // Set up new context to start executing at forkret,
-  // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
@@ -159,9 +136,6 @@ found:
   return p;
 }
 
-// free a proc structure and the data hanging from it,
-// including user pages.
-// p->lock must be held.
 static void
 freeproc(struct proc *p)
 {
@@ -180,30 +154,21 @@ freeproc(struct proc *p)
   p->state = UNUSED;
 }
 
-// Create a user page table for a given process, with no user memory,
-// but with trampoline and trapframe pages.
 pagetable_t
 proc_pagetable(struct proc *p)
 {
   pagetable_t pagetable;
 
-  // An empty page table.
   pagetable = uvmcreate();
   if (pagetable == 0)
     return 0;
 
-  // map the trampoline code (for system call return)
-  // at the highest user virtual address.
-  // only the supervisor uses it, on the way
-  // to/from user space, so not PTE_U.
   if (mappages(pagetable, TRAMPOLINE, PGSIZE, (uint64)trampoline,
                PTE_R | PTE_X) < 0) {
     uvmfree(pagetable, 0);
     return 0;
   }
 
-  // map the trapframe page just below the trampoline page, for
-  // trampoline.S.
   if (mappages(pagetable, TRAPFRAME, PGSIZE, (uint64)(p->trapframe),
                PTE_R | PTE_W) < 0) {
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
@@ -214,8 +179,6 @@ proc_pagetable(struct proc *p)
   return pagetable;
 }
 
-// Free a process's page table, and free the
-// physical memory it refers to.
 void
 proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
@@ -224,7 +187,6 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmfree(pagetable, sz);
 }
 
-// Set up first user process.
 void
 userinit(void)
 {
@@ -240,8 +202,6 @@ userinit(void)
   release(&p->lock);
 }
 
-// Grow or shrink user memory by n bytes.
-// Return 0 on success, -1 on failure.
 int
 growproc(int n)
 {
@@ -263,8 +223,6 @@ growproc(int n)
   return 0;
 }
 
-// Create a new process, copying the parent.
-// Sets up child kernel stack to return as if from fork() system call.
 int
 kfork(void)
 {
@@ -272,12 +230,10 @@ kfork(void)
   struct proc *np;
   struct proc *p = myproc();
 
-  // Allocate process.
   if ((np = allocproc()) == 0) {
     return -1;
   }
 
-  // Copy user memory from parent to child.
   if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
     freeproc(np);
     release(&np->lock);
@@ -285,13 +241,10 @@ kfork(void)
   }
   np->sz = p->sz;
 
-  // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
-  // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
-  // increment reference counts on open file descriptors.
   for (i = 0; i < NOFILE; i++)
     if (p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
@@ -314,8 +267,6 @@ kfork(void)
   return pid;
 }
 
-// Pass p's abandoned children to init.
-// Caller must hold wait_lock.
 void
 reparent(struct proc *p)
 {
@@ -329,9 +280,6 @@ reparent(struct proc *p)
   }
 }
 
-// Exit the current process.  Does not return.
-// An exited process remains in the zombie state
-// until its parent calls wait().
 void
 kexit(int status)
 {
@@ -340,7 +288,6 @@ kexit(int status)
   if (p == initproc)
     panic("init exiting");
 
-  // Close all open files.
   for (int fd = 0; fd < NOFILE; fd++) {
     if (p->ofile[fd]) {
       struct file *f = p->ofile[fd];
@@ -356,10 +303,8 @@ kexit(int status)
 
   acquire(&wait_lock);
 
-  // Give any children to init.
   reparent(p);
 
-  // Parent might be sleeping in wait().
   wakeup(p->parent);
 
   acquire(&p->lock);
@@ -369,13 +314,10 @@ kexit(int status)
 
   release(&wait_lock);
 
-  // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
 }
 
-// Wait for a child process to exit and return its pid.
-// Return -1 if this process has no children.
 int
 kwait(uint64 addr)
 {
@@ -386,16 +328,13 @@ kwait(uint64 addr)
   acquire(&wait_lock);
 
   for (;;) {
-    // Scan through table looking for exited children.
     havekids = 0;
     for (pp = proc; pp < &proc[NPROC]; pp++) {
       if (pp->parent == p) {
-        // make sure the child isn't still in exit() or swtch().
         acquire(&pp->lock);
 
         havekids = 1;
         if (pp->state == ZOMBIE) {
-          // Found one.
           pid = pp->pid;
           if (addr != 0 &&
               copyout(p->pagetable, p->sz, addr, (char *)&pp->xstate,
@@ -414,38 +353,24 @@ kwait(uint64 addr)
       }
     }
 
-    // No point waiting if we don't have any children.
     if (!havekids || killed(p)) {
       release(&wait_lock);
       return -1;
     }
 
-    // Wait for a child to exit.
-    sleep_prepare(p); //DOC: wait-sleep
+    sleep_prepare(p);
     release(&wait_lock);
     sleep();
     acquire(&wait_lock);
   }
 }
 
-// Time slice (in timer ticks) for each queue level.
-// Lower queues get longer slices: fewer context switches for CPU hogs,
-// while the top queue stays short so interactive/I/O jobs are served fast.
 #ifndef SCHED_RR
 static const int quantum[NQUEUE] = {1, 2, 4};
 
-// Monotonic counter stamped on a process each time it is dispatched.
-// Smallest stamp in a level == least recently run == next in that level.
 static uint64 sched_seq;
 #endif
 
-// Charge a finished run of `ran` cycles to p (p->lock held, p just came back
-// from swtch). `lvl` is the queue the process was in when it was dispatched.
-//
-// Why here and not in the timer interrupt: charging a whole tick to whoever
-// happens to be running when the tick fires punishes I/O-bound jobs that
-// run for microseconds. Measuring real run time with the `time` CSR makes
-// demotion depend on how long the process actually held the CPU.
 static void
 account_run(struct proc *p, int lvl, uint64 ran)
 {
@@ -453,8 +378,6 @@ account_run(struct proc *p, int lvl, uint64 ran)
   p->level_cycles[lvl] += ran;
 #ifndef SCHED_RR
   if (p->state == RUNNABLE) {
-    // Preempted by the timer: it still wanted the CPU. Count the time
-    // toward its slice; a full slice means demotion (bottom queue is the floor).
     p->slice_cycles += ran;
     if (p->slice_cycles >= (uint64)quantum[lvl] * TICK_CYCLES) {
       if (p->priority < NQUEUE - 1)
@@ -462,17 +385,12 @@ account_run(struct proc *p, int lvl, uint64 ran)
       p->slice_cycles = 0;
     }
   } else {
-    // It blocked (I/O, sleep, exit) before the slice ran out: keep the level
-    // and start the next slice fresh.
     p->slice_cycles = 0;
   }
 #endif
 }
 
 #ifndef SCHED_RR
-// Choose the RUNNABLE process with the best (lowest) priority level;
-// ties are broken by least-recently-run, which is round-robin inside a level.
-// Returns with the chosen process's lock HELD, or 0 if nothing is runnable.
 static struct proc *
 mlfq_pick(void)
 {
@@ -481,7 +399,6 @@ mlfq_pick(void)
     int bestprio = NQUEUE;
     uint64 bestseq = ~0ULL;
 
-    // Pass 1: look without keeping any lock (each lock is held only briefly).
     for (struct proc *p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if (p->state == RUNNABLE &&
@@ -496,8 +413,6 @@ mlfq_pick(void)
     if (best == 0)
       return 0;
 
-    // Pass 2: lock the winner and re-check. Another CPU may have taken it
-    // between the two passes; if so just rescan.
     acquire(&best->lock);
     if (best->state == RUNNABLE)
       return best;
@@ -505,8 +420,6 @@ mlfq_pick(void)
   }
 }
 
-// Priority boost: put every live process back in the top queue so a
-// process that was demoted during a CPU burst cannot starve forever.
 void
 mlfq_boost(void)
 {
@@ -521,13 +434,6 @@ mlfq_boost(void)
 }
 #endif
 
-// Per-CPU process scheduler.
-// Each CPU calls scheduler() after setting itself up.
-// Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
-//  - swtch to start running that process.
-//  - eventually that process transfers control
-//    via swtch back to the scheduler.
 void
 scheduler(void)
 {
@@ -536,16 +442,10 @@ scheduler(void)
 
   c->proc = 0;
   for (;;) {
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
     intr_off();
 
 #ifdef SCHED_RR
-    // ---- original xv6 round-robin (kept for the baseline benchmark) ----
     int found = 0;
     for (p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
@@ -566,10 +466,8 @@ scheduler(void)
       asm volatile("wfi");
     }
 #else
-    // ---- MLFQ: always run the highest-priority runnable process ----
     p = mlfq_pick();
     if (p == 0) {
-      // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
       continue;
     }
@@ -582,24 +480,14 @@ scheduler(void)
     swtch(&c->context, &p->context);
     account_run(p, lvl, r_time() - t0);
 
-    // Don't re-enable interrupts on release.
     mycpu()->intena = 0;
     c->proc = 0;
 
-    // pick() returned with p->lock held; the process re-acquired it before
-    // switching back to us, so we release it here.
     release(&p->lock);
 #endif
   }
 }
 
-// Switch to scheduler.  Must hold only p->lock
-// and have changed proc->state. Saves and restores
-// intena because intena is a property of this
-// kernel thread, not this CPU. It should
-// be proc->intena and proc->noff, but that would
-// break in the few places where a lock is held but
-// there's no process.
 void
 sched(void)
 {
@@ -620,7 +508,6 @@ sched(void)
   mycpu()->intena = intena;
 }
 
-// Give up the CPU for one scheduling round.
 void
 yield(void)
 {
@@ -631,8 +518,6 @@ yield(void)
   release(&p->lock);
 }
 
-// A fork child's very first scheduling by scheduler()
-// will swtch to forkret.
 void
 forkret(void)
 {
@@ -640,33 +525,25 @@ forkret(void)
   static int first = 1;
   struct proc *p = myproc();
 
-  // Still holding p->lock from scheduler.
   release(&p->lock);
 
   if (first) {
     first = 0;
 
-    // File system initialization must be run in the context of a
-    // regular process (e.g., because it calls sleep), and thus cannot
-    // be run from main().
     fsinit(ROOTDEV);
 
-    // We can invoke kexec() now that file system is initialized.
-    // Put the return value (argc) of kexec into a0.
     p->trapframe->a0 = kexec("/init", (char *[]){"/init", 0});
     if (p->trapframe->a0 == -1) {
       panic("exec");
     }
   }
 
-  // return to user space, mimicing usertrap()'s return.
   prepare_return();
   uint64 satp = MAKE_SATP(p->pagetable);
   uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
   ((void (*)(uint64))trampoline_userret)(satp);
 }
 
-// Register current process as waiting for wakeups on chan.
 void
 sleep_prepare(void *chan)
 {
@@ -679,9 +556,6 @@ sleep_prepare(void *chan)
   release(&p->lock);
 }
 
-// Put the thread to sleep.  Assumes sleep_prepare() was called before.
-// If the channel registered by sleep_prepare() has been woken up in
-// the meantime, do not go to sleep, and instead return immediately.
 void
 sleep(void)
 {
@@ -695,7 +569,6 @@ sleep(void)
   release(&p->lock);
 }
 
-// Wake up all processes sleeping on channel chan.
 void
 wakeup(void *chan)
 {
@@ -704,22 +577,11 @@ wakeup(void *chan)
   for (p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if (p->chan == chan) {
-      // If the process is waiting for wakeups on this channel,
-      // signal that the wakeup happened by clearing p->chan.
       p->chan = 0;
 
-      // If this waiting process has gotten so far as to actually
-      // go to sleep, also set it back to RUNNING.
       if (p->state == SLEEPING) {
         p->state = RUNNABLE;
 #if !defined(SCHED_RR) && !defined(NO_WAKE_PREEMPT)
-        // Preempt-on-wakeup: if the process we just woke has a better
-        // priority than what this CPU is running, ask the CPU to reschedule
-        // as soon as the trap finishes instead of waiting up to a full
-        // timer tick (100 ms). Without this an I/O-bound job gets one CPU
-        // burst per tick no matter how high its priority is.
-        // (interrupts are off here, p->lock is held; reading cur->priority
-        // without its lock is a harmless race since this is only a hint.)
         struct proc *cur = mycpu()->proc;
         if (cur != 0 && cur != p && p->priority < cur->priority)
           mycpu()->need_resched = 1;
@@ -730,9 +592,6 @@ wakeup(void *chan)
   }
 }
 
-// Kill the process with the given pid.
-// The victim won't exit until it tries to return
-// to user space (see usertrap() in trap.c).
 int
 kkill(int pid)
 {
@@ -746,7 +605,6 @@ kkill(int pid)
     if (p->pid == pid) {
       p->killed = 1;
       if (p->state == SLEEPING) {
-        // Wake process from sleep().
         p->state = RUNNABLE;
       }
       release(&p->lock);
@@ -776,9 +634,6 @@ killed(struct proc *p)
   return k;
 }
 
-// Copy to either a user address, or kernel address,
-// depending on usr_dst.
-// Returns 0 on success, -1 on error.
 int
 either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 {
@@ -791,9 +646,6 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
   }
 }
 
-// Copy from either a user address, or kernel address,
-// depending on usr_src.
-// Returns 0 on success, -1 on error.
 int
 either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 {
@@ -806,21 +658,16 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
   }
 }
 
-// Print a process listing to console.  For debugging.
-// Runs when user types ^P on console.
-// No lock to avoid wedging a stuck machine further.
 void
 procdump(void)
 {
   static char *states[] = {
-    // clang-format off
     [UNUSED]    = "unused",
     [USED]      = "used",
     [SLEEPING]  = "sleep ",
     [RUNNABLE]  = "runble",
     [RUNNING]   = "run   ",
     [ZOMBIE]    = "zombie"
-    // clang-format on
   };
   struct proc *p;
   char *state;
@@ -838,8 +685,6 @@ procdump(void)
   }
 }
 
-// Fill *out with the performance counters of process pid.
-// Returns 0 on success, -1 if no such live process.
 int
 kgetprocinfo(int pid, struct procinfo *out)
 {
@@ -855,7 +700,7 @@ kgetprocinfo(int pid, struct procinfo *out)
 #endif
       out->priority = p->priority;
       out->cpu_ticks = p->cpu_cycles / TICK_CYCLES;
-      out->cpu_ms = p->cpu_cycles / (TICK_CYCLES / 100); // one tick = 100 ms
+      out->cpu_ms = p->cpu_cycles / (TICK_CYCLES / 100);
       out->nsched = p->nsched;
       for (int i = 0; i < PINFO_LEVELS; i++)
         out->level_ms[i] = p->level_cycles[i] / (TICK_CYCLES / 100);
@@ -867,7 +712,6 @@ kgetprocinfo(int pid, struct procinfo *out)
   return -1;
 }
 
-// Returns 1 (once) if wakeup() asked this CPU to reschedule. Called at trap exit.
 int
 preempt_pending(void)
 {

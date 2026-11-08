@@ -14,7 +14,7 @@ sys_exit(void)
   int n;
   argint(0, &n);
   kexit(n);
-  return 0; // not reached
+  return 0;
 }
 
 uint64
@@ -53,9 +53,6 @@ sys_sbrk(void)
       return -1;
     }
   } else {
-    // Lazily allocate memory for this process: increase its memory
-    // size but don't allocate memory. If the processes uses the
-    // memory, vmfault() will allocate it.
     if (addr + n < addr)
       return -1;
     if (addr + n > TRAPFRAME)
@@ -99,8 +96,6 @@ sys_kill(void)
   return kkill(pid);
 }
 
-// return how many clock tick interrupts have occurred
-// since start.
 uint64
 sys_uptime(void)
 {
@@ -112,9 +107,6 @@ sys_uptime(void)
   return xticks;
 }
 
-// int getprocinfo(int pid, struct procinfo *info)
-// pid <= 0 means "the calling process". Returns 0 on success, -1 on error.
-// xv6 syscalls return a single int, so the metrics come back through *info.
 uint64
 sys_getprocinfo(void)
 {
@@ -128,8 +120,6 @@ sys_getprocinfo(void)
   if (pid <= 0)
     pid = me->pid;
 
-  // Snapshot under the target's lock, copy to user space after releasing it
-  // (copyout must not run while holding a spinlock).
   if (kgetprocinfo(pid, &info) < 0)
     return -1;
   if (copyout(me->pagetable, me->sz, uaddr, (char *)&info, sizeof(info)) < 0)

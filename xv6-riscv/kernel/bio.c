@@ -32,7 +32,6 @@ binit(void)
   }
 }
 
-
 static struct buf *
 bget(uint dev, uint blockno)
 {
@@ -64,7 +63,6 @@ bget(uint dev, uint blockno)
   }
   panic("bget: no buffers");
 }
-
 
 struct buf *
 bread(uint dev, uint blockno)

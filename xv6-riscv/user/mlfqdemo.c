@@ -1,7 +1,3 @@
-// mlfqdemo - visual demonstration of scheduler behaviour.
-// Starts 2 CPU hogs and 1 I/O job, then the parent samples every 2 ticks and
-// prints each child's queue level and CPU ticks. Under MLFQ the hogs sink to
-// level 2 while the I/O job stays at level 0; under RR everything stays at 0.
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"
@@ -37,7 +33,7 @@ main(int argc, char *argv[])
     alive = 0;
     for (int i = 0; i < 3; i++) {
       struct procinfo pi;
-      if (getprocinfo(pids[i], &pi) == 0 && pi.state != 5) {  // 5 = ZOMBIE
+      if (getprocinfo(pids[i], &pi) == 0 && pi.state != 5) {
         printf(" %s %d  L%d  %d  %d |", role[i], pi.pid, pi.priority, pi.cpu_ticks, pi.nsched);
         alive++;
       } else {

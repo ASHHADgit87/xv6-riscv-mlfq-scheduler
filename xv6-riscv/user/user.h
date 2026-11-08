@@ -2,7 +2,6 @@
 
 struct stat;
 
-// system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));
 int wait(int *);
@@ -28,7 +27,6 @@ int sync(void);
 struct procinfo;
 int getprocinfo(int, struct procinfo*);
 
-// ulib.c
 int stat(const char *, struct stat *);
 char *strcpy(char *, const char *);
 void *memmove(void *, const void *, int);
@@ -43,10 +41,8 @@ void *memcpy(void *, const void *, uint);
 char *sbrk(int);
 char *sbrklazy(int);
 
-// printf.c
 void fprintf(int, const char *, ...) __attribute__((format(printf, 2, 3)));
 void printf(const char *, ...) __attribute__((format(printf, 1, 2)));
 
-// umalloc.c
 void *malloc(uint);
 void free(void *);

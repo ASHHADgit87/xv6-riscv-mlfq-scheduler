@@ -1,5 +1,3 @@
-// mlfqtest - functional tests for the MLFQ scheduler and getprocinfo().
-// Prints PASS/FAIL per check. Meaningful only on the MLFQ build.
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"
@@ -17,7 +15,6 @@ check(char *name, int ok)
     failures++;
 }
 
-// Spin for about n timer ticks without making any syscall that could block.
 static void
 spin_ticks(int n)
 {
@@ -33,7 +30,6 @@ main(void)
 {
   struct procinfo pi, pj;
 
-  // 1. getprocinfo basics
   check("getprocinfo(self) succeeds", getprocinfo(0, &pi) == 0);
   check("reported pid equals getpid()", pi.pid == getpid());
   check("running on MLFQ build", pi.sched_mode == 1);
@@ -43,7 +39,6 @@ main(void)
   check("getprocinfo(bad pid 99999) returns -1", getprocinfo(99999, &pj) == -1);
   check("getprocinfo(bad pointer) returns -1", getprocinfo(0, (struct procinfo *)0xFFFFFFFFFFULL) == -1);
 
-  // 2. CPU hog is demoted and its counters grow
   int before = pi.cpu_ticks;
   spin_ticks(6);
   getprocinfo(0, &pi);
@@ -53,11 +48,9 @@ main(void)
   int sum = 0;
   for (int i = 0; i < PINFO_LEVELS; i++)
     sum += pi.level_ms[i];
-  // per-level values are truncated separately, so allow a few ms of rounding
   check("level_ms add up to cpu_ms", sum <= pi.cpu_ms && pi.cpu_ms - sum <= 3);
   check("time spent in bottom queue is recorded", pi.level_ms[NQUEUE_LAST] > 0);
 
-  // 3. Child of a demoted parent starts fresh at the top
   int p2c[2];
   pipe(p2c);
   int pid = fork();
@@ -72,7 +65,6 @@ main(void)
   wait(0);
   check("child of demoted parent starts at priority 0", child_prio == 0);
 
-  // 4. I/O-bound process keeps its priority (no demotion for yielding)
   pid = fork();
   if (pid == 0) {
     struct procinfo ci;
@@ -87,7 +79,6 @@ main(void)
   wait(0);
   check("I/O-bound process stays at priority 0", io_ok == 1);
 
-  // 5. Sleeping process keeps its level
   pid = fork();
   if (pid == 0) {
     struct procinfo ci;
@@ -103,12 +94,11 @@ main(void)
   wait(0);
   check("sleeping process stays at priority 0", sl_ok == 1);
 
-  // 6. Priority boost lifts the hog back to level 0 eventually
   getprocinfo(0, &pi);
   int boosted = 0;
   int deadline = uptime() + 250;
   while (uptime() < deadline && !boosted) {
-    pause(1);                       // sleep so we do not demote again meanwhile
+    pause(1);
     getprocinfo(0, &pi);
     if (pi.priority == 0)
       boosted = 1;

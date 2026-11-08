@@ -1,4 +1,3 @@
-// cpubound [limit]  - standalone CPU-bound benchmark (prime counting).
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"

@@ -132,18 +132,42 @@ xv6-riscv-mlfq-scheduler is delivered as a **Core Kernel Modification**. Develop
 
 # Live Demo
 
-Execution Instructions:
+Execution Instructions (run `make` commands from the `xv6-riscv` folder, not the project root):
 
 ```bash
 sudo apt install build-essential qemu-system-misc gcc-riscv64-linux-gnu python3
+cd xv6-riscv
+
+# MLFQ kernel, one hart (used for all benchmarks)
 make clean
 make qemu CPUS=1
 
-# Inside xv6:
-$mlfqtest$ bench 3 1
+# Original round-robin kernel, one hart
+make clean
+make qemu SCHED=RR CPUS=1
+
+# MLFQ without wakeup preemption (comparison build)
+make clean
+make qemu NOPREEMPT=1 CPUS=1
+
+# MLFQ on three harts
+make clean
+make qemu CPUS=3
 ```
 
+Run `make clean` whenever you switch builds. To leave QEMU, press Ctrl-A, then X.
 
+Inside xv6 (at the `$` prompt):
+
+```
+mlfqtest
+mlfqdemo
+cpubound
+iobound
+bench 1 1
+bench 3 1
+usertests -q
+```
 
 ---
 
@@ -153,4 +177,3 @@ $mlfqtest$ bench 3 1
 - LinkedIn: https://www.linkedin.com/in/muhammad-ashhadullah-zaheer-41194a340/
 - **Misbah Sarfraz**
 - Co-Creator & Infrastructure Developer
-```

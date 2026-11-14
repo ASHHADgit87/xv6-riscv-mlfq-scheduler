@@ -136,23 +136,19 @@ Execution Instructions (run `make` commands from the `xv6-riscv` folder, not the
 
 ```bash
 sudo apt install build-essential qemu-system-misc gcc-riscv64-linux-gnu python3
-cd xv6-riscv
-
+ 
+# xv6 only builds from a path with no spaces, so build from a copy in the home folder
+cp -r xv6-riscv ~/xv6-riscv
+cd ~/xv6-riscv
+ 
 # MLFQ kernel, one hart (used for all benchmarks)
 make clean
 make qemu CPUS=1
-
-# Original round-robin kernel, one hart
-make clean
-make qemu SCHED=RR CPUS=1
-
-# MLFQ without wakeup preemption (comparison build)
-make clean
-make qemu NOPREEMPT=1 CPUS=1
-
-# MLFQ on three harts
-make clean
-make qemu CPUS=3
+ 
+# Inside xv6 (at the $ prompt):
+mlfqtest
+mlfqdemo
+bench 3 1
 ```
 
 Run `make clean` whenever you switch builds. To leave QEMU, press Ctrl-A, then X.
